@@ -18,7 +18,17 @@ sources = ["vendor_boot", "vendor_dlkm", "vendor", "system_dlkm"]
 # GT9615, both over SPI behind Xiaomi's touch layer. The phone's own
 # modules.load lists both drivers, and only the one whose controller is
 # fitted finds it.
-load = ["synaptics_tcm2", "goodix_core"]
+#
+# nxp-nci is the NXP NFC/eSE controller at i2c 21-0028 (devicetree nq@28,
+# "qcom,sn-nci"), the chip the NXP weaver's slots live in. First-stage init
+# leaves it unbound and waiting_for_supplier, so libEseUtils.so finds no
+# /dev/nq-nci, the secure element HAL reports "Unknown eSE vendor", and
+# se_omapi's isSecureElementPresent stays false. Without it the OMAPI
+# transport cannot open the weaver applet and /data stays locked. Its
+# smcinvoke_dlkm dependency is loaded first by modules::load() from
+# vendor_dlkm's modules.dep. The ST drivers (stm_nfc_i2c /
+# stm_st54se_gpio) belong to other variants and must NOT be loaded here.
+load = ["synaptics_tcm2", "goodix_core", "nxp-nci"]
 
 # As on the 17 Ultra, the controller comes back from its reset sending raw
 # frames for /odm/lib64/libtouchreport.so, which a recovery runs none of;
@@ -59,6 +69,121 @@ oneshot = true
 user = "root"
 groups = ["root", "system", "wakelock", "graphics"]
 
+# The secure world's HALs. The stock system starts these before it can
+# decrypt /data; a recovery has to start them itself. The programs are the
+# ones this build's vendor/odm partitions carry, copied into /sbin by the
+# port so services::start()'s is_file() check does not depend on how those
+# partitions happen to be mounted. /system/lib64 comes FIRST, ahead of
+# /vendor/lib64: vendor carries its own libbinder.so, and a HAL that links
+# that copy sends a "VNDR" parcel header to recovery's servicemanager,
+# which expects "RECO" and rejects every addService with -129. /sbin holds
+# the vendor-only runtime (libssd.so, libQSEEComAPI.so, the NDK interface
+# libraries), safe from the vendor partition mounted over /vendor. The
+# stock recovery also leaves out libvndksupport.so (needed by vendor's
+# libutils.so) and libapexsupport.so (needed by libbinder.so); both were
+# added to /system/lib64 by the port.
+#
+# None of them names ready_property / ready_service / ready_hardware_service:
+# services::start() waits up to 20 s for one and fails the whole recovery
+# when it never appears. The interfaces each registers go in `registers`
+# instead, which main.rs also hands to publish_descriptions(): that is what
+# lets servicemanager accept the registration, without any readiness wait.
+# A HAL that cannot come up is restarted in the background and costs only
+# that feature. All run as root/root, as this build's init scripts do.
+[[service]]
+path = "/sbin/qseecomd"
+libraries = ["/system/lib64", "/sbin", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64"]
+user = "root"
+groups = ["root"]
+
+# Opens the secure world's apps for the programs that speak to them as
+# GlobalPlatform's TEE client does; they are loaded from the modem
+# partition that [firmware] mounts.
+[[service]]
+path = "/sbin/hlosminkdaemon"
+libraries = ["/system/lib64", "/sbin", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64"]
+user = "root"
+groups = ["root"]
+
+# The only service that can unwrap the keys the phone bound to hardware.
+# One program also serves the secure clock and the shared secret.
+[[service]]
+path = "/sbin/android.hardware.security.onekeymint-service-qti"
+libraries = ["/system/lib64", "/sbin", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64"]
+registers = [
+    "android.hardware.security.keymint.IKeyMintDevice/default",
+    "android.hardware.security.keymint.IRemotelyProvisionedComponent/default",
+    "android.hardware.security.secureclock.ISecureClock/default",
+    "android.hardware.security.sharedsecret.ISharedSecret/default",
+]
+user = "root"
+groups = ["root"]
+
+# Checks what a user enters at their screen lock and hands out the note
+# the key service wants before it uses a credential-guarded key.
+[[service]]
+path = "/sbin/android.hardware.gatekeeper-rust-service-qti"
+libraries = ["/system/lib64", "/sbin", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64"]
+registers = ["android.hardware.gatekeeper.IGatekeeper/default"]
+user = "root"
+groups = ["root"]
+
+# popsicle's weaver is NXP, unlike the 17 Ultra's Goodix one. Its own init
+# script runs android.hardware.weaver-service.nxp-qti as root/root with the
+# same library order; the secure element HAL beside it is what reaches the
+# eSE the weaver's slots live in.
+[[service]]
+path = "/sbin/android.hardware.weaver-service.nxp-qti"
+libraries = ["/system/lib64", "/sbin", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64"]
+registers = ["android.hardware.weaver.IWeaver/default"]
+user = "root"
+groups = ["root"]
+
+[[service]]
+path = "/sbin/android.hardware.secure_element-service.qti"
+libraries = ["/system/lib64", "/sbin", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64"]
+registers = [
+    "android.hardware.secure_element.ISecureElement/SIM1",
+    "android.hardware.secure_element.ISecureElement/SIM2",
+    # The recovery HAL registers the embedded SE, not the two SIM ones.
+    # TWRP's recovery-device.xml declares eSE1; without it servicemanager
+    # turns the HAL's addService away and the HAL aborts at main.cpp:608,
+    # which also kills the NXP weaver's transport (ese_weaver.so talks to
+    # android.hardware.secure_element) and leaves /data locked.
+    "android.hardware.secure_element.ISecureElement/eSE1",
+]
+user = "root"
+groups = ["root"]
+
+# Boot control says which slot the bootloader starts next. It comes last:
+# the phone is usable without it.
+[[service]]
+path = "/sbin/android.hardware.boot-service.qti"
+libraries = ["/system/lib64", "/sbin", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64"]
+registers = ["android.hardware.boot.IBootControl/default"]
+user = "root"
+groups = ["root"]
+
+# The NXP weaver does not talk to the eSE itself: ese_weaver.so's
+# OmapiTransport asks the service directory for the OMAPI service, opens the
+# applet on one of its readers, and sends the GetSlots frame through that
+# channel. TWRP starts /system/bin/se_omapi for exactly this; the stock
+# recovery and Skyward's v0.2.0 donor have neither the program nor a
+# description of its interface, so the weaver's "Failed to start
+# omapiSeService null" leaves /data locked even with every other HAL up.
+# The vendor partition does describe android.se.omapi in
+# secure_element-service.xml, but it spells name and instance in separate
+# tags, which secure::describes() cannot match; the port bakes TWRP's
+# se_omapi.xml into the recovery manifest directory instead. Live check on
+# the phone: se_omapi links, reaches ISecureElement/eSE1, and only aborts
+# (-3) because servicemanager cannot find its interface in VINTF.
+[[service]]
+path = "/sbin/se_omapi"
+libraries = ["/system/lib64", "/sbin", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64"]
+registers = ["android.se.omapi.ISecureElementService/default"]
+user = "root"
+groups = ["root"]
+
 # WLAN: Qualcomm's Peach on PCIe (qcom,cnss-peach in its dtbo), as on the
 # 17 Ultra, whose vendor partition this phone shares file for file but for
 # its build properties, a power hint and two radio libraries.
@@ -67,7 +192,13 @@ modules = ["rfkill", "qca_cld3_peach_v2"]
 writes = [{ path = "/sys/kernel/cnss/fs_ready", value = "1" }]
 interface = "wlan0"
 supplicant = "/vendor/bin/hw/wpa_supplicant"
-libraries = ["/system/lib64", "/vendor/lib64"]
+# Same order as the HALs: the recovery's own libbinder must win over the
+# vendor partition's copy, or the supplicant's addService parcel carries a
+# "VNDR" header where recovery's servicemanager expects "RECO" and the
+# registration fails with -129. The stock recovery leaves out
+# libvndksupport.so and libapexsupport.so; those were added to /system/lib64,
+# and the vendor-only runtime (libssd.so and friends) now lives in /sbin.
+libraries = ["/system/lib64", "/sbin", "/vendor/lib64", "/vendor/lib64/hw", "/odm/lib64", "/mnt/system/system/lib64"]
 service = "android.hardware.wifi.supplicant.ISupplicant/default"
 probe = "http://connect.rom.miui.com/generate_204"
 
@@ -75,17 +206,23 @@ probe = "http://connect.rom.miui.com/generate_204"
 [update]
 server = "https://update.miui.com/updates/miotaV3.php"
 
-# The stock build the recovery is made on: the Chinese system's OS4.0.4.0,
+# The stock build the recovery is made on: the Chinese system's OS4.0.6.0,
 # whose full update package on the phone maker's own download server holds
-# the recovery partition the recovery is built on top of.
+# the recovery partition the recovery is built on top of. The recovery sum
+# below was read from the local recovery-406.img supplied with this port;
+# check it against that full OTA before running `skyward-pack stock`.
 [stock]
-version = "OS4.0.4.0.XPBCNXM"
-package = "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS4.0.4.0.XPBCNXM/popsicle-ota_full-OS4.0.4.0.XPBCNXM-user-17.0-7d13a10bbc.zip"
-recovery = "e66b80e5f1c0f54383d5a7f4e0da2d52f69c927dab32ae88b69e6695767a4a70"
+version = "OS4.0.6.0.XPBCNXM"
+package = "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS4.0.6.0.XPBCNXM/popsicle-ota_full-OS4.0.6.0.XPBCNXM-user-17.0-13c9e292db.zip"
+recovery = "cfd845ae5b18812757ba83170d0dce690bb998d1310e7bc0b186e362be7ad9e5"
 
 # qcom-hv-haptics (qcom,hv-haptics in its dtbo), with the click made from
 # samples at the motor's resonant frequency as on the 17 Ultra. The
 # strengths are the 17 Ultra's, which were felt on that phone's motor.
+# On OS4.0.6.0 the stock recovery leaves the cs40l26 supply chain (pinctrl)
+# and its DSP firmware alone, so no FF_PERIODIC input device is registered.
+# skyward/ui.rs treats an unopenable motor as optional and runs the UI
+# silently instead of taking the whole recovery down.
 [haptics]
 resonance = "/sys/class/qcom-haptics/lra_frequency_hz"
 strength = { lightest = 0.25, strongest = 0.75 }

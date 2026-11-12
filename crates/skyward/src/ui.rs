@@ -1059,7 +1059,17 @@ pub fn run(cfg: &DeviceConfig, font: &Path, mono: &Path, request: bcb::Request, 
     let mut touch_known = false;
     // adbd and fastbootd ask over it to go over to fastboot and back.
     let control = Control::open()?;
-    let mut haptics = cfg.haptics.as_ref().map(Haptics::open).transpose()?;
+    // A described motor can be out of reach on a stock base: its driver,
+    // firmware and supply chain are brought up by the phone's own init, not
+    // by the recovery. Feedback is optional, so carry on with a silent UI
+    // instead of taking the whole recovery down over a missing device.
+    let mut haptics = match cfg.haptics.as_ref().map(Haptics::open).transpose() {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("haptics unavailable, continuing without feedback: {e}");
+            None
+        }
+    };
     let mut backlight = Backlight::open()?;
     let first = match &request.work {
         Work::Fastboot => Screen::Fastboot,
