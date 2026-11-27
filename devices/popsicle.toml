@@ -75,13 +75,17 @@ probe = "http://connect.rom.miui.com/generate_204"
 [update]
 server = "https://update.miui.com/updates/miotaV3.php"
 
-# The stock build the recovery is made on: the Chinese system's OS4.0.4.0,
+# The stock build the recovery is made on: the Chinese system's OS4.0.6.0,
 # whose full update package on the phone maker's own download server holds
-# the recovery partition the recovery is built on top of.
+# the recovery partition the recovery is built on top of. Upstream still
+# names OS4.0.4.0, which no popsicle in this port runs: the phone came with
+# OS4.0.6.0 and cannot be taken back to an older build. The recovery sum
+# below was read from the recovery-406.img that came with this port; check
+# it against that full OTA before running `skyward-pack stock`.
 [stock]
-version = "OS4.0.4.0.XPBCNXM"
-package = "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS4.0.4.0.XPBCNXM/popsicle-ota_full-OS4.0.4.0.XPBCNXM-user-17.0-7d13a10bbc.zip"
-recovery = "e66b80e5f1c0f54383d5a7f4e0da2d52f69c927dab32ae88b69e6695767a4a70"
+version = "OS4.0.6.0.XPBCNXM"
+package = "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS4.0.6.0.XPBCNXM/popsicle-ota_full-OS4.0.6.0.XPBCNXM-user-17.0-13c9e292db.zip"
+recovery = "cfd845ae5b18812757ba83170d0dce690bb998d1310e7bc0b186e362be7ad9e5"
 
 # qcom-hv-haptics (qcom,hv-haptics in its dtbo), with the click made from
 # samples at the motor's resonant frequency as on the 17 Ultra. The
