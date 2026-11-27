@@ -4,6 +4,12 @@
 
 English | [简体中文](README.zh-CN.md)
 
+> [!IMPORTANT]
+> **This repository is the Xiaomi 17 Pro Max (popsicle) port**, tracking upstream Skyward **0.5.1**.
+> Flashable recovery image: [Releases · v0.5.1-popsicle](https://github.com/bacosta-d/skyward-popsicle/releases/tag/v0.5.1-popsicle)
+> Built for the stock build HyperOS **OS4.0.6.0.XPBCNXM**; do not flash it on another version.
+> Upstream: [kirklin/skyward](https://github.com/kirklin/skyward)
+
 Skyward is a recovery written in Rust, from scratch.
 
 <p align="center">

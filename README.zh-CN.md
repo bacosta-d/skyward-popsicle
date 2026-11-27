@@ -4,6 +4,12 @@
 
 [English](README.md) | 简体中文
 
+> [!IMPORTANT]
+> **本仓库是 Xiaomi 17 Pro Max（popsicle）的移植分支**，跟随上游 Skyward **0.5.1**。
+> 可直接刷入的 recovery 镜像：[Releases · v0.5.1-popsicle](https://github.com/bacosta-d/skyward-popsicle/releases/tag/v0.5.1-popsicle)
+> 适用底包为 HyperOS **OS4.0.6.0.XPBCNXM**，其他版本请勿刷入。
+> 上游仓库：[kirklin/skyward](https://github.com/kirklin/skyward)
+
 Skyward 是使用 Rust 编写的 recovery，从零开始编写。
 
 <p align="center">
