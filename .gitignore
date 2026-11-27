@@ -15,3 +15,6 @@ NOTES.md
 TODO.md
 *.draft.md
 notes/
+
+# 本地工作区数据（不下发）
+.workbuddy/

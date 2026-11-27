@@ -87,9 +87,7 @@ version = "OS4.0.6.0.XPBCNXM"
 package = "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS4.0.6.0.XPBCNXM/popsicle-ota_full-OS4.0.6.0.XPBCNXM-user-17.0-13c9e292db.zip"
 recovery = "cfd845ae5b18812757ba83170d0dce690bb998d1310e7bc0b186e362be7ad9e5"
 
-# qcom-hv-haptics (qcom,hv-haptics in its dtbo), with the click made from
-# samples at the motor's resonant frequency as on the 17 Ultra. The
-# strengths are the 17 Ultra's, which were felt on that phone's motor.
-[haptics]
-resonance = "/sys/class/qcom-haptics/lra_frequency_hz"
-strength = { lightest = 0.25, strongest = 0.75 }
+# No [haptics] section: vibration is off for this port. Skyward treats the
+# section as optional, so leaving it out means the UI makes no haptic
+# request at all instead of opening the motor and failing on a phone whose
+# driver is not there.
