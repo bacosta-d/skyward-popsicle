@@ -83,6 +83,11 @@ server = "https://update.miui.com/updates/miotaV3.php"
 # below was read from the recovery-406.img that came with this port; check
 # it against that full OTA before running `skyward-pack stock`.
 [stock]
+# Read at packaging time only: `skyward-pack stock` fetches this OTA to lift the
+# partition layout and the AVB footer out of its stock recovery. Nothing here is
+# compared at runtime, so an image built from this build still boots on another
+# OS4 build for the same phone — it simply follows whatever the phone holds.
+# Rebuild against the newer OTA only if the screen, touch or Wi-Fi misbehave.
 version = "OS4.0.6.0.XPBCNXM"
 package = "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS4.0.6.0.XPBCNXM/popsicle-ota_full-OS4.0.6.0.XPBCNXM-user-17.0-13c9e292db.zip"
 recovery = "cfd845ae5b18812757ba83170d0dce690bb998d1310e7bc0b186e362be7ad9e5"

@@ -7,10 +7,44 @@ English | [简体中文](README.zh-CN.md)
 > [!IMPORTANT]
 > **This repository is the Xiaomi 17 Pro Max (popsicle) port**, tracking upstream Skyward **0.5.1**.
 > Flashable recovery image: [Releases · v0.5.1-popsicle](https://github.com/bacosta-d/skyward-popsicle/releases/tag/v0.5.1-popsicle)
-> Built for the stock build HyperOS **OS4.0.6.0.XPBCNXM**; do not flash it on another version.
+> Packaged against and verified on HyperOS **OS4.0.6.0.XPBCNXM**. Any other **OS4.x** build for
+> popsicle is expected to work; **OS3.x** has not been tried but is worth a shot — the image carries
+> no kernel and no drivers, it follows whatever the phone's own partitions hold. See
+> [Which builds it runs on](#which-builds-it-runs-on).
 > Upstream: [kirklin/skyward](https://github.com/kirklin/skyward)
 
 Skyward is a recovery written in Rust, from scratch.
+
+## Which builds it runs on
+
+This image was packaged against the popsicle build **OS4.0.6.0.XPBCNXM**, and that
+is the build it was verified on. That version is where the port was checked, not a
+gate that the image checks at boot:
+
+- **OS4.x on popsicle — any build should work.** The image holds no kernel, no
+  driver modules and no hardware HALs. It boots on whatever kernel sits in the
+  phone's own `boot` partition, loads the modules the installed `vendor_boot`,
+  `vendor_dlkm` and `system_dlkm` provide, and reads the services data decryption
+  needs out of the installed system's own init scripts. What is pinned down is the
+  screen, the touch controller, Wi-Fi and vibration in `devices/popsicle.toml`, and
+  those do not move between OS4 builds of the same phone.
+- **OS3.x on popsicle — untested, worth trying.** The same hardware description
+  ought to hold, since it is the same phone and the same panels. What has not been
+  checked here is whether the older vendor image names its touch modules and sysfs
+  nodes the same way.
+- **A different phone — no.** The driver is not what varies; the partition layout,
+  the touch controller, the panel and the Wi-Fi chip are, and those are exactly what
+  a device description pins down.
+
+One thing is not about the image at all: verification has to be off for it to boot.
+A system update can rewrite `vbmeta` and turn verification back on. If the phone
+then refuses to enter recovery, run the vbmeta step again — the image itself is
+still fine.
+
+If something misbehaves after a system update — touch not tracking the finger, no
+backlight — the fix is to rebuild against that build's firmware: three lines in
+`[stock]` of `devices/popsicle.toml`, one version bump, and the pack step takes
+under a minute on the phone.
 
 <p align="center">
   <img src="assets/home.png" width="30%" alt="Home">
@@ -110,6 +144,7 @@ merged, super and the logical partitions in it are not flashed.
 | Device | Codename | Tested system version |
 | --- | --- | --- |
 | Xiaomi 17 Ultra | `nezha` | OS4.0.4.0.XPACNXM (Android 17) |
+| Xiaomi 17 Pro Max | `popsicle` | OS4.0.6.0.XPBCNXM (Android 17) |
 | Xiaomi 13 Ultra | `ishtar` | OS3.0.308.0.WMACNXM (Android 16) |
 | REDMI K60 Pro | `socrates` | OS4.0.0.24.XMKCNXM (Android 17) |
 
@@ -134,7 +169,6 @@ not been verified.
 | 🚧 Xiaomi 15 Ultra | `xuanyuan` | OS3.0.314.0.WOACNXM (Android 16) |
 | 🚧 Xiaomi 17 | `pudding` | OS4.0.4.0.XPCCNXM (Android 17) |
 | 🚧 Xiaomi 17 Pro | `pandora` | OS4.0.4.0.XBLCNXM (Android 17) |
-| 🚧 Xiaomi 17 Pro Max | `popsicle` | OS4.0.4.0.XPBCNXM (Android 17) |
 | 🚧 Xiaomi 17 Max | `byron` | OS3.0.310.0.WAFCNXM (Android 16) |
 | 🚧 REDMI K80 | `zorn` | OS3.0.309.0.WOKCNXM (Android 16) |
 | 🚧 REDMI K80 Pro | `miro` | OS3.0.305.0.WOMCNXM (Android 16) |
@@ -146,11 +180,28 @@ not been verified.
 
 ## Installing Skyward
 
-Skyward needs an unlocked bootloader. Download the zip for your phone from
-[Releases](https://github.com/kirklin/skyward/releases), where each shows as the
-phone's model and codename, such as Xiaomi 17 Ultra (nezha). Check it against
-`SHA256SUMS`, unzip it, and flash the image inside to the recovery partition of
-the slot the phone runs from, with the phone in fastboot mode:
+Skyward needs an unlocked bootloader. For the popsicle port, download the image from
+[this repository's Releases](https://github.com/bacosta-d/skyward-popsicle/releases/tag/v0.5.1-popsicle)
+(it is a bare `.img`, no zip to unpack) and flash it to the recovery partition of the
+slot the phone boots from, with the phone in fastboot mode:
+
+```sh
+sha256sum skyward-popsicle-0.5.1-OS4.0.6.0.img   # 14e07fad…c444
+fastboot flash recovery_a skyward-popsicle-0.5.1-OS4.0.6.0.img
+fastboot reboot recovery
+```
+
+Verification has to be off, otherwise the bootloader refuses to start it. If it has
+not been done on this phone yet:
+
+```sh
+fastboot --disable-verification flash vbmeta_a vbmeta.img
+```
+
+Upstream builds for the other phones are zips on
+[kirklin/skyward releases](https://github.com/kirklin/skyward/releases), each named
+after its model and codename, such as Xiaomi 17 Ultra (nezha), checked against
+`SHA256SUMS`:
 
 ```sh
 unzip skyward-v0.5.1-nezha-OS4.0.4.0.XPACNXM.zip

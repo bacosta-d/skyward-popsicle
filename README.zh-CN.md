@@ -7,10 +7,24 @@
 > [!IMPORTANT]
 > **本仓库是 Xiaomi 17 Pro Max（popsicle）的移植分支**，跟随上游 Skyward **0.5.1**。
 > 可直接刷入的 recovery 镜像：[Releases · v0.5.1-popsicle](https://github.com/bacosta-d/skyward-popsicle/releases/tag/v0.5.1-popsicle)
-> 适用底包为 HyperOS **OS4.0.6.0.XPBCNXM**，其他版本请勿刷入。
+> 打包与验证所依据的底包为 HyperOS **OS4.0.6.0.XPBCNXM**。同为 popsicle 的其他 **OS4.x** 版本理论上通用；
+> **OS3.x** 没有试过，值得一试——镜像里没有内核也没有驱动，用的是手机自己分区里的那一套。详见
+> [适用的系统版本](#适用的系统版本)。
 > 上游仓库：[kirklin/skyward](https://github.com/kirklin/skyward)
 
 Skyward 是使用 Rust 编写的 recovery，从零开始编写。
+
+## 适用的系统版本
+
+这个镜像按照 popsicle 的 **OS4.0.6.0.XPBCNXM** 打包，也是实际验证过的版本。但它是“验证于”这个版本，不是启动时要过的关卡：
+
+- **同为 popsicle 的 OS4.x —— 都可以用。** 镜像里没有内核、没有驱动模块、也没有写死硬件相关的 HAL 程序。它用手机 `boot` 分区里当前那颗内核启动，加载已安装系统的 `vendor_boot`、`vendor_dlkm`、`system_dlkm` 提供的模块，解密 data 所需的程序也是从已安装系统自己的 init 脚本里读出来的。真正写死的是 `devices/popsicle.toml` 里的屏幕、触摸控制器、WLAN 和振动，同一台手机的 OS4 版本之间这些不会变。
+- **同为 popsicle 的 OS3.x —— 没试过，值得一试。** 同一台手机、同一套屏幕和面板，这份硬件描述应当照样成立。这里没有核对过的只有一点：更早的 vendor 镜像里，触摸模块的名字和 sysfs 节点路径是不是还是同样的写法。
+- **换一台手机 —— 不行。** 变的不是驱动，而是分区布局、触摸控制器、面板和 WLAN 芯片，而这些正是机型描述要写死的东西。
+
+有一件事和镜像本身无关：必须关闭验证启动，它才能起来。系统更新有可能重写 `vbmeta`、把校验重新打开，这时手机进不去 recovery —— 重做一次关闭验证即可，镜像本身没有坏。
+
+如果系统更新之后出现异常——触摸跟手不对、屏幕不亮——解决办法是按那个版本的固件重新打包：改 `devices/popsicle.toml` 里 `[stock]` 的三行，版本号加一，在手机上打包不到一分钟。
 
 <p align="center">
   <img src="assets/home.png" width="30%" alt="首页">
@@ -95,6 +109,7 @@ Skyward 是使用 Rust 编写的 recovery，从零开始编写。
 | 机型 | 代号 | 测试的系统版本 |
 | --- | --- | --- |
 | 小米 17 Ultra | `nezha` | OS4.0.4.0.XPACNXM（Android 17） |
+| 小米 17 Pro Max | `popsicle` | OS4.0.6.0.XPBCNXM（Android 17） |
 | 小米 13 Ultra | `ishtar` | OS3.0.308.0.WMACNXM（Android 16） |
 | REDMI K60 Pro | `socrates` | OS4.0.0.24.XMKCNXM（Android 17） |
 
@@ -114,7 +129,6 @@ Skyward 是使用 Rust 编写的 recovery，从零开始编写。
 | 🚧 小米 15 Ultra | `xuanyuan` | OS3.0.314.0.WOACNXM（Android 16） |
 | 🚧 小米 17 | `pudding` | OS4.0.4.0.XPCCNXM（Android 17） |
 | 🚧 小米 17 Pro | `pandora` | OS4.0.4.0.XBLCNXM（Android 17） |
-| 🚧 小米 17 Pro Max | `popsicle` | OS4.0.4.0.XPBCNXM（Android 17） |
 | 🚧 小米 17 Max | `byron` | OS3.0.310.0.WAFCNXM（Android 16） |
 | 🚧 REDMI K80 | `zorn` | OS3.0.309.0.WOKCNXM（Android 16） |
 | 🚧 REDMI K80 Pro | `miro` | OS3.0.305.0.WOMCNXM（Android 16） |
@@ -126,7 +140,21 @@ Skyward 是使用 Rust 编写的 recovery，从零开始编写。
 
 ## 安装 Skyward
 
-Skyward 需要已解锁的 bootloader。从 [Releases](https://github.com/kirklin/skyward/releases) 下载对应机型的 zip，每个文件都标有机型和代号，例如 Xiaomi 17 Ultra (nezha)。使用 `SHA256SUMS` 核对并解压之后，在手机处于 fastboot 模式的时候，把其中的镜像刷入当前运行槽位的 recovery 分区：
+Skyward 需要已解锁的 bootloader。popsicle 的移植版请从[本仓库的 Releases](https://github.com/bacosta-d/skyward-popsicle/releases/tag/v0.5.1-popsicle) 下载镜像（是直接的 `.img`，不用解压 zip），在手机处于 fastboot 模式的时候，刷入当前启动槽位的 recovery 分区：
+
+```sh
+sha256sum skyward-popsicle-0.5.1-OS4.0.6.0.img   # 14e07fad…c444
+fastboot flash recovery_a skyward-popsicle-0.5.1-OS4.0.6.0.img
+fastboot reboot recovery
+```
+
+刷之前必须已经关闭验证启动，否则引导程序不会启动它。如果这台手机还没关过：
+
+```sh
+fastboot --disable-verification flash vbmeta_a vbmeta.img
+```
+
+其他机型的上游构建在 [kirklin/skyward 的 Releases](https://github.com/kirklin/skyward/releases)，每个 zip 都标有机型和代号，例如 Xiaomi 17 Ultra (nezha)，使用 `SHA256SUMS` 核对：
 
 ```sh
 unzip skyward-v0.5.1-nezha-OS4.0.4.0.XPACNXM.zip
